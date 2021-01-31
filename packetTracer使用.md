@@ -1264,7 +1264,7 @@ Trying to connect...192.168.95.4
 
 图2
 
-![sp20201225_212122_080](F:\onedrive\桌面\yhn笔记本\网站运维\upload\sp20201225_212122_080.png)
+![sp20201225_212122_080](F:\onedrive\桌面\sp20201225_212122_080.png)
 
 图3
 
@@ -1277,3 +1277,135 @@ Trying to connect...192.168.95.4
 图5
 
 ![image-20201225213311952](C:\Users\yhn\AppData\Roaming\Typora\typora-user-images\image-20201225213311952.png)
+
+
+
+
+
+
+
+
+
+### 实验10
+
+
+
+```
+1、将192.168.95.3(www服务器) 静态NAT到218.1.1.99。 
+2、将192.168.95.5(SMTP服务器) 静态NAT到218.1.1.98。 
+3、将管理网段、行政网段的内部私有IP动态NAT到218.1.1.97和218.1.1.96。 
+4、将教学网段、宿舍网段的内部私有IP动态PAT到218.1.1.95。 
+```
+
+
+
+#### 1、将192.168.95.3(www服务器) 静态NAT到218.1.1.99。 
+
+```shell
+# www服务器的配置
+RageRouter>enable 
+RageRouter#configure terminal 
+Enter configuration commands, one per line.  End with CNTL/Z.
+# 1、将192.168.95.3(www服务器) 静态NAT到218.1.1.99。
+RageRouter(config)#ip nat inside source static 192.168.95.3 218.1.1.99
+# 配置以太网口是对内的接口
+RageRouter(config)#interface fastEthernet 0/0
+RageRouter(config-if)#ip nat inside
+RageRouter(config-if)#exit
+# 配置串口是对外的接口 
+RageRouter(config)#interface serial 1/0
+RageRouter(config-if)#ip nat outside 
+RageRouter#show ip nat translations 
+Pro  Inside global     Inside local       Outside local      Outside global
+---  218.1.1.99        192.168.95.3       ---                ---
+```
+
+![image-20210108111748708](C:\Users\yhn\AppData\Roaming\Typora\typora-user-images\image-20210108111748708.png)
+
+![image-20210108112738183](C:\Users\yhn\AppData\Roaming\Typora\typora-user-images\image-20210108112738183.png)
+
+![image-20210108112752558](C:\Users\yhn\AppData\Roaming\Typora\typora-user-images\image-20210108112752558.png)
+
+#### 2、将192.168.95.5(SMTP服务器) 静态NAT到218.1.1.98。
+
+```shell
+RageRouter(config)#ip nat inside source static 192.168.95.5 218.1.1.98
+RageRouter(config)#interface fastEthernet 0/0
+RageRouter(config-if)#ip nat inside 
+RageRouter(config)#interface serial 1/0
+RageRouter(config-if)#ip nat outside
+RageRouter#show ip nat translations 
+Pro  Inside global     Inside local       Outside local      Outside global
+---  218.1.1.98        192.168.95.5       ---                ---
+---  218.1.1.99        192.168.95.3       ---                ---
+tcp 218.1.1.98:25      192.168.95.5:25    218.1.2.2:1000     218.1.2.2:1000
+tcp 218.1.1.99:80      192.168.95.3:80    218.1.2.2:1000     218.1.2.2:1000
+tcp 218.1.1.99:80      192.168.95.3:80    218.1.2.2:1026     218.1.2.2:1026
+tcp 218.1.1.99:80      192.168.95.3:80    218.1.2.2:1042     218.1.2.2:1042
+tcp 218.1.1.99:80      192.168.95.3:80    218.1.2.2:1043     218.1.2.2:1043
+tcp 218.1.1.99:80      192.168.95.3:80    218.1.2.2:1044     218.1.2.2:1044
+```
+
+
+
+#### 3、将管理网段(192.168.99.0)、行政网段(192.168.98.0)的内部私有IP动态NAT到218.1.1.97和218.1.1.96。
+
+```shell
+RageRouter(config)#access-list 1 permit 192.168.99.0 0.0.0.255
+RageRouter(config)#access-list 1 permit 192.168.98.0 0.0.0.255
+RageRouter(config)#ip nat pool mypool 218.1.1.97 218.1.1.96 netmask 255.255.255.0
+RageRouter(config)#ip nat inside source list 1 pool mypool
+RageRouter(config)#interface fastEthernet 0/0
+RageRouter(config-if)#ip nat inside 
+RageRouter(config-if)#exit
+RageRouter(config)#interface serial 1/0
+RageRouter(config-if)#ip nat outside 
+RageRouter(config-if)#exit
+```
+
+
+
+
+
+
+
+
+
+大作业
+
+outerRouter的配置
+
+```shell
+# rip的配置
+Router>enable
+Router#configure terminal 
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router(config)#hostname outerRouter
+outerRouter(config)#router rip
+outerRouter(config-router)#network 218.1.1.0
+outerRouter(config-router)#network 218.1.99.0
+```
+
+
+
+
+
+```shell
+Router(config)#hostname edgeRouter
+# rip 的配置
+edgeRouter(config)#router rip
+edgeRouter(config-router)# network 192.168.43.0
+edgeRouter(config-router)# network 218.1.1.0
+# 只允许访问 80端口的服务 其他不允许
+edgeRouter(config)#access-list 101 permit tcp 218.1.99.0 0.0.0.255 host 192.168.43.50 eq 80
+edgeRouter(config)#interface fastEthernet 0/0
+edgeRouter(config-if)#ip access-group 101 out
+# 静态NAT的配置
+edgeRouter(config)#ip nat inside source static 192.168.43.50 218.1.1.99
+edgeRouter(config)#interface fastEthernet 0/0
+edgeRouter(config-if)#ip nat inside 
+edgeRouter(config-if)#exit
+edgeRouter(config)#interface serial 1/0
+edgeRouter(config-if)#ip nat outside 
+```
+
